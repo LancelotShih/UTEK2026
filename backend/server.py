@@ -416,7 +416,7 @@ async def ws_endpoint(ws: WebSocket):
                 stream_task.cancel()
 
             if t == "cap_slow":
-                stream_task = asyncio.create_task(stream_from_result(ocr(speed=0.5)))
+                stream_task = asyncio.create_task(stream_from_result(ocr(speed=0.65)))
 
             elif t == "cap_normal":
                 stream_task = asyncio.create_task(stream_from_result(ocr()))
