@@ -86,12 +86,6 @@ def repeat() -> Tuple[np.ndarray, List[str]]:
     return audio, words
 
 
-def repeat() -> Tuple[np.ndarray, List[str]]:
-    audio = np.zeros(AUDIO.sample_rate_hz // 2, dtype=np.int16)
-    text = ["repeat result placeholder"]
-    return audio, text
-
-
 def ndarray_to_linear16_bytes(audio_np: np.ndarray) -> bytes:
     if audio_np.dtype == np.uint8:
         return audio_np.tobytes(order="C")
