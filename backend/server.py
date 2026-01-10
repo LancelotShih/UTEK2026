@@ -382,6 +382,9 @@ async def ws_endpoint(ws: WebSocket):
     stream_task: asyncio.Task | None = None
 
     async def stream_from_result(result: Tuple[np.ndarray, List[str]]):
+        if result is None:
+            return
+
         audio_np, words = result
         pcm = ndarray_to_linear16_bytes(audio_np)
 

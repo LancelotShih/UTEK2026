@@ -65,7 +65,7 @@ def ocr(speed: float = 1.0) -> tuple[np.ndarray, list[str]] | None:
     text = recognize_text_in_image(state.openai_client, img_str)
     if text is None:
         logger.info("No text recognized in image")
-        return None
+        return np.ndarray([], dtype=np.int16), ["NO", "TEXT"]
     state.add_to_memory(text.split())
 
     speech = state.tts_client.get_tts(text, speed=speed)
