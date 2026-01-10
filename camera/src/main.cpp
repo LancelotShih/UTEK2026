@@ -7,9 +7,6 @@
 // ===================
 // WiFi Credentials (WPA2-Enterprise)
 // ===================
-const char* ssid = "placeholder_ssid";
-const char* username = "utorid";
-const char* password = "password";
 
 // ===================
 // ESP32-CAM AI-Thinker Pin Definitions
@@ -223,13 +220,19 @@ void startCameraServer() {
 void setup() {
     Serial.begin(115200);
     Serial.setDebugOutput(true);
+    delay(1000);
+    
     Serial.println();
+    Serial.println("=================================");
+    Serial.println("ESP32-CAM Web Server Starting...");
+    Serial.println("=================================");
 
     // Setup flash LED
     pinMode(LED_GPIO_NUM, OUTPUT);
     digitalWrite(LED_GPIO_NUM, LOW);
 
     // Camera configuration
+    Serial.println("Configuring camera...");
     camera_config_t config;
     config.ledc_channel = LEDC_CHANNEL_0;
     config.ledc_timer = LEDC_TIMER_0;
@@ -245,8 +248,8 @@ void setup() {
     config.pin_pclk = PCLK_GPIO_NUM;
     config.pin_vsync = VSYNC_GPIO_NUM;
     config.pin_href = HREF_GPIO_NUM;
-    config.pin_sscb_sda = SIOD_GPIO_NUM;
-    config.pin_sscb_scl = SIOC_GPIO_NUM;
+    config.pin_sccb_sda = SIOD_GPIO_NUM;
+    config.pin_sccb_scl = SIOC_GPIO_NUM;
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
     config.xclk_freq_hz = 20000000;
@@ -255,8 +258,8 @@ void setup() {
 
     // Frame size and quality settings
     if (psramFound()) {
-        config.frame_size = FRAMESIZE_VGA;  // 640x480
-        config.jpeg_quality = 10;           // 0-63, lower is better quality
+        config.frame_size = FRAMESIZE_VGA;
+        config.jpeg_quality = 10;
         config.fb_count = 2;
         Serial.println("PSRAM found - using higher quality settings");
     } else {
@@ -277,33 +280,33 @@ void setup() {
     // Camera sensor settings
     sensor_t *s = esp_camera_sensor_get();
     if (s) {
-        s->set_brightness(s, 0);     // -2 to 2
-        s->set_contrast(s, 0);       // -2 to 2
-        s->set_saturation(s, 0);     // -2 to 2
-        s->set_special_effect(s, 0); // 0 = No Effect
-        s->set_whitebal(s, 1);       // 0 = disable, 1 = enable
-        s->set_awb_gain(s, 1);       // 0 = disable, 1 = enable
-        s->set_wb_mode(s, 0);        // 0 to 4 - white balance mode
-        s->set_exposure_ctrl(s, 1);  // 0 = disable, 1 = enable
-        s->set_aec2(s, 0);           // 0 = disable, 1 = enable
-        s->set_gain_ctrl(s, 1);      // 0 = disable, 1 = enable
-        s->set_agc_gain(s, 0);       // 0 to 30
-        s->set_gainceiling(s, (gainceiling_t)0);  // 0 to 6
-        s->set_bpc(s, 0);            // 0 = disable, 1 = enable
-        s->set_wpc(s, 1);            // 0 = disable, 1 = enable
-        s->set_raw_gma(s, 1);        // 0 = disable, 1 = enable
-        s->set_lenc(s, 1);           // 0 = disable, 1 = enable
-        s->set_hmirror(s, 0);        // 0 = disable, 1 = enable
-        s->set_vflip(s, 0);          // 0 = disable, 1 = enable
-        s->set_dcw(s, 1);            // 0 = disable, 1 = enable
-        s->set_colorbar(s, 0);       // 0 = disable, 1 = enable
+        s->set_brightness(s, 0);
+        s->set_contrast(s, 0);
+        s->set_saturation(s, 0);
+        s->set_special_effect(s, 0);
+        s->set_whitebal(s, 1);
+        s->set_awb_gain(s, 1);
+        s->set_wb_mode(s, 0);
+        s->set_exposure_ctrl(s, 1);
+        s->set_aec2(s, 0);
+        s->set_gain_ctrl(s, 1);
+        s->set_agc_gain(s, 0);
+        s->set_gainceiling(s, (gainceiling_t)0);
+        s->set_bpc(s, 0);
+        s->set_wpc(s, 1);
+        s->set_raw_gma(s, 1);
+        s->set_lenc(s, 1);
+        s->set_hmirror(s, 0);
+        s->set_vflip(s, 0);
+        s->set_dcw(s, 1);
+        s->set_colorbar(s, 0);
     }
 
     // Connect to WiFi (WPA2-Enterprise for UofT)
+    Serial.println("Connecting to WiFi...");
     WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
     
-    // Configure WPA2-Enterprise
     esp_wifi_sta_wpa2_ent_set_identity((uint8_t *)username, strlen(username));
     esp_wifi_sta_wpa2_ent_set_username((uint8_t *)username, strlen(username));
     esp_wifi_sta_wpa2_ent_set_password((uint8_t *)password, strlen(password));
@@ -325,7 +328,6 @@ void setup() {
         Serial.print("Camera Stream Ready! Go to: http://");
         Serial.println(WiFi.localIP());
         
-        // Start the camera server
         startCameraServer();
     } else {
         Serial.println("\nFailed to connect to WiFi");
@@ -335,8 +337,6 @@ void setup() {
 
 void loop() {
     delay(10000);
-    
-    // Print status periodically
     if (WiFi.status() == WL_CONNECTED) {
         Serial.printf("WiFi connected - IP: %s\n", WiFi.localIP().toString().c_str());
     } else {
