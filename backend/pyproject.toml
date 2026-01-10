@@ -5,6 +5,7 @@ description = "UTEK 2026 Backend"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "loguru>=0.7.3",
     "numpy>=2.4.1",
     "openai>=2.15.0",
     "pillow>=12.1.0",

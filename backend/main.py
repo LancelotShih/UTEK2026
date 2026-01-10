@@ -1,101 +1,112 @@
-from io import BytesIO
-import base64
 import tomllib
 from pathlib import Path
-from time import time, sleep
 
-import requests
 import sounddevice as sd
-from PIL import Image, ImageOps
 from openai import OpenAI
 import numpy as np
+from loguru import logger
 
 from tts import TTSAPIClient
+from esp_cam import CameraClient
+from recognize import recognize_text_in_image
 
 
 CONFIG_PATH = Path(__file__).parent / "config.toml"
 TEST_IMG_PATH = Path(__file__).parent / "test/ocr_test_1.webp"
 
 
-def quickstart(key: str, img_url: str):
-    # jpeg_buf = BytesIO()
-    # img = Image.open(TEST_IMG_PATH).save(jpeg_buf, format="JPEG")
-    # img_raw_b64 = base64.b64encode(jpeg_buf.getvalue())
+class State:
+    openai_client: OpenAI
+    camera_client: CameraClient
+    tts_client: TTSAPIClient
 
-    start = time()
-    requests.get(img_url + "/flash")
-    sleep(0.15)
-    resp = requests.get(img_url + "/capture")
-    sleep(0.15)
-    requests.get(img_url + "/flash")
-    print(f"Image downloaded in {(time() - start)*1000:.2f} ms")
+    memory: list[str] = []
 
-    start = time()
-    img_raw_b64 = base64.b64encode(resp.content)
-    img_str = f"data:image/jpeg;base64,{img_raw_b64.decode()}"
-    print(f"Image b64 encoded in {(time() - start)*1000:.2f} ms")
+    def __init__(self, path: Path):
+        # Load config
+        data = tomllib.loads(path.read_text())
 
-    im = Image.open(BytesIO(resp.content), formats=["JPEG"])
-    im.show()
-    # flipped = ImageOps.flip(im)
-    # flipped.show()
+        # Init drivers
+        self.openai_client = OpenAI(
+            base_url=data["base_urls"]["openrouter"],
+            api_key=data["keys"]["openrouter"],
+        )
 
-    start = time()
+        self.camera_client = CameraClient(
+            base_url=data["base_urls"]["esp"]
+        )
 
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=key,
-    )
+        self.tts_client = TTSAPIClient(
+            api_url=data["base_urls"]["tts"],
+            api_key=data["keys"]["google"],
+        )
 
-    completion = client.chat.completions.create(
-        # extra_headers={
-        #     "HTTP-Referer": "<YOUR_SITE_URL>", # Optional. Site URL for rankings on openrouter.ai.
-        #     "X-Title": "<YOUR_SITE_NAME>", # Optional. Site title for rankings on openrouter.ai.
-        # },
-        extra_body={"reasoning": {"enabled": True}},
-        # model="allenai/molmo-2-8b:free",
-        # model="openai/gpt-5.2",
-        model="openai/gpt-4.1-mini",
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Recognize text in image and output: \"CONFIDENCE: <confidence score>\nTEXT: <recognized text>"
-                            "Do not output anything other than the recognized text. "
-                            # "Translate the text to English if it is in another language. "
-                            "If there is no recognizable text, output \"NO_TEXT\". "
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": img_str
-                    }
-                },
-            ]
-        }]
-    )
+        self.memory = []
 
-    text = completion.choices[0].message.content
-    # text = "testing"
-    print(text)
-    print(f"Image processed in {time() - start:.2f} s")
+        logger.info("State initialized")
 
-    if text is not None:
-        start = time()
-        speech = tts_client.get_tts(text, speed=1.5)
-        speech_np = np.frombuffer(speech.read(), dtype=np.int16)
-        print(f"Got TTS in {time() - start:.2f} s")
-        sd.play(speech_np, samplerate=24000, blocking=True)
+    def add_to_memory(self, words: list[str]):
+        self.memory.extend(words)
+        while len(self.memory) > 30:
+            self.memory.pop(0)
+        logger.debug(f"Memory: {', '.join(self.memory)}")
+
+
+def ocr(speed: float = 1.0) -> tuple[np.ndarray, list[str]] | None:
+    """Takes picture and returns tuple of speech audio (int16 numpy array, 24000 Hz) and list of words."""
+
+    img_str = state.camera_client.capture_b64(flash=True, show=False)
+    if img_str is None:
+        logger.error("Failed to capture image from camera")
+        return None
+
+    text = recognize_text_in_image(state.openai_client, img_str)
+    if text is None:
+        logger.info("No text recognized in image")
+        return None
+    state.add_to_memory(text.split())
+
+    speech = state.tts_client.get_tts(text, speed=speed)
+    if speech is None:
+        logger.error("Failed to get text-to-speech audio from text")
+        return None
+
+    sd.play(speech, samplerate=24000, blocking=True)
+    return speech, text.split()
+
+
+def repeat(speed: float = 1.0) -> tuple[np.ndarray, list[str]] | None:
+    """Repeats the words in memory, returned as speech audio (int16 numpy array, 24000 Hz) and list of words."""
+
+    if len(state.memory) == 0:
+        text = "Memory is empty."
+    else:
+        text = " ".join(state.memory)
+
+    speech = state.tts_client.get_tts(text, speed=speed)
+    if speech is None:
+        logger.error("Failed to get text-to-speech audio from text")
+        return None
+
+    sd.play(speech, samplerate=24000, blocking=True)
+    return speech, state.memory
 
 
 if __name__ == "__main__":
-    config = tomllib.loads(CONFIG_PATH.read_text())
-    global tts_client
-    tts_client = TTSAPIClient(
-        api_url=config["base_urls"]["tts"],
-        api_key=config["keys"]["google"],
-    )
-    api_key = config["keys"]["openrouter"]
-    esp_url = config["base_urls"]["esp"]
-    quickstart(api_key, esp_url)
+    global state
+    state = State(CONFIG_PATH)
+    # config = tomllib.loads(CONFIG_PATH.read_text())
+    # global tts_client
+    # tts_client = TTSAPIClient(
+    #     api_url=config["base_urls"]["tts"],
+    #     api_key=config["keys"]["google"],
+    # )
+    # api_key = config["keys"]["openrouter"]
+    # esp_url = config["base_urls"]["esp"]
+
+    while True:
+        mode = input("enter for capture, r for repeat: ")
+        if mode == "r":
+            repeat()
+        else:
+            ocr()

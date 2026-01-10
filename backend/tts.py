@@ -1,7 +1,9 @@
+import base64
+from time import time
 
 import requests
-import base64
-import io
+import numpy as np
+from loguru import logger
 
 
 class TTSAPIClient:
@@ -9,7 +11,9 @@ class TTSAPIClient:
         self.api_url = api_url
         self.api_key = api_key
 
-    def get_tts(self, input: str, speed: float = 0.75) -> io.BytesIO:
+    def get_tts(self, input: str, speed: float = 0.75) -> np.ndarray | None:
+        start = time()
+        
         payload = {
             "input": {
                 "text": input,
@@ -33,4 +37,7 @@ class TTSAPIClient:
         data = resp.json()
         wav_bytes = base64.urlsafe_b64decode(data["audioContent"])
 
-        return io.BytesIO(wav_bytes)
+        wav_np = np.frombuffer(wav_bytes, dtype=np.int16)
+        logger.debug(f"Got TTS in {time() - start:.2f} s")
+
+        return wav_np
