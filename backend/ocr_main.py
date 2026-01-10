@@ -51,6 +51,8 @@ class State:
             self.memory.pop(0)
         logger.debug(f"Memory: {', '.join(self.memory)}")
 
+state = State(CONFIG_PATH)
+
 
 def ocr(speed: float = 1.0) -> tuple[np.ndarray, list[str]] | None:
     """Takes picture and returns tuple of speech audio (int16 numpy array, 24000 Hz) and list of words."""
@@ -71,7 +73,7 @@ def ocr(speed: float = 1.0) -> tuple[np.ndarray, list[str]] | None:
         logger.error("Failed to get text-to-speech audio from text")
         return None
 
-    sd.play(speech, samplerate=24000, blocking=True)
+    # sd.play(speech, samplerate=24000, blocking=True)
     return speech, text.split()
 
 
@@ -88,13 +90,11 @@ def repeat(speed: float = 1.0) -> tuple[np.ndarray, list[str]] | None:
         logger.error("Failed to get text-to-speech audio from text")
         return None
 
-    sd.play(speech, samplerate=24000, blocking=True)
+    # sd.play(speech, samplerate=24000, blocking=True)
     return speech, state.memory
 
 
 if __name__ == "__main__":
-    global state
-    state = State(CONFIG_PATH)
     # config = tomllib.loads(CONFIG_PATH.read_text())
     # global tts_client
     # tts_client = TTSAPIClient(

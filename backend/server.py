@@ -18,6 +18,8 @@ import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
+from ocr_main import ocr, repeat
+
 app = FastAPI()
 
 MIN_TIME = 0.12
@@ -30,7 +32,7 @@ MIN_TIME = 0.12
 
 @dataclass(frozen=True)
 class AudioConfig:
-    sample_rate_hz: int = 16_000
+    sample_rate_hz: int = 24_000
     channels: int = 1 #mono audio
     chunk_ms: int = 100
 
@@ -65,25 +67,25 @@ def _tone(freq_hz: float, duration_sec: float, amp: float = 0.4) -> np.ndarray:
     return np.array([_clamp_int16(x) for x in wave], dtype=np.int16)
 
 
-def OCR() -> Tuple[np.ndarray, List[str]]:
-    # 3 short beeps: low → mid → high
-    audio = np.concatenate([
-        _tone(440, 0.25),
-        _tone(660, 0.25),
-        _tone(880, 0.25),
-    ])
-    words = ["hello", "from", "ocr", "hello", "from", "ocr", "hello", "from", "ocr"]
-    return audio, words
+# def OCR() -> Tuple[np.ndarray, List[str]]:
+#     # 3 short beeps: low → mid → high
+#     audio = np.concatenate([
+#         _tone(440, 0.25),
+#         _tone(660, 0.25),
+#         _tone(880, 0.25),
+#     ])
+#     words = ["hello", "from", "ocr", "hello", "from", "ocr", "hello", "from", "ocr"]
+#     return audio, words
 
 
-def repeat() -> Tuple[np.ndarray, List[str]]:
-    # 2 longer beeps
-    audio = np.concatenate([
-        _tone(330, 0.4),
-        _tone(330, 0.4),
-    ])
-    words = ["repeat", "mode"]
-    return audio, words
+# def repeat() -> Tuple[np.ndarray, List[str]]:
+#     # 2 longer beeps
+#     audio = np.concatenate([
+#         _tone(330, 0.4),
+#         _tone(330, 0.4),
+#     ])
+#     words = ["repeat", "mode"]
+#     return audio, words
 
 
 def ndarray_to_linear16_bytes(audio_np: np.ndarray) -> bytes:
@@ -172,13 +174,12 @@ INDEX_HTML_MIN = f"""
     </style>
   </head>
   <body>
-    <h2>LINEAR16 WebSocket Stream</h2>
+    <h2>VisiHelp</h2>
 
     <!-- Start removed: button1/button2 will auto-start everything -->
-    <button id="stop">Stop</button>
-    <br/>
-    <button id="b1">button1</button>
-    <button id="b2">button2</button>
+    <button id="cap_slow">Read (SLOW)</button>
+    <button id="cap_normal">Read</button>
+    <button id="repeat">Repeat</button>
 
     <div id="status">Idle</div>
 
@@ -330,22 +331,30 @@ INDEX_HTML_MIN = f"""
         }}
       }}
 
-      document.getElementById("stop").onclick = stop;
+      // document.getElementById("stop").onclick = stop;
 
-      document.getElementById("b1").onclick = async () => {{
+      document.getElementById("cap_slow").onclick = async () => {{
         nextTime = 0;
         await ensureConnected();
         //  unmute output for new playback
         if (global_gain) global_gain.gain.value = 1.0;
-        ws.send(JSON.stringify({{type: "button1"}}));
+        ws.send(JSON.stringify({{type: "cap_slow"}}));
       }};
 
-      document.getElementById("b2").onclick = async () => {{
+      document.getElementById("cap_normal").onclick = async () => {{
         nextTime = 0;
         await ensureConnected();
         //  unmute output for new playback
         if (global_gain) global_gain.gain.value = 1.0;
-        ws.send(JSON.stringify({{type: "button2"}}));
+        ws.send(JSON.stringify({{type: "cap_normal"}}));
+      }};
+
+      document.getElementById("repeat").onclick = async () => {{
+        nextTime = 0;
+        await ensureConnected();
+        //  unmute output for new playback
+        if (global_gain) global_gain.gain.value = 1.0;
+        ws.send(JSON.stringify({{type: "repeat"}}));
       }};
     </script>
   </body>
@@ -406,16 +415,19 @@ async def ws_endpoint(ws: WebSocket):
             if stream_task and not stream_task.done():
                 stream_task.cancel()
 
-            if t == "button1":
-                stream_task = asyncio.create_task(stream_from_result(OCR()))
+            if t == "cap_slow":
+                stream_task = asyncio.create_task(stream_from_result(ocr(speed=0.5)))
 
-            elif t == "button2":
+            elif t == "cap_normal":
+                stream_task = asyncio.create_task(stream_from_result(ocr()))
+
+            elif t == "repeat":
                 stream_task = asyncio.create_task(stream_from_result(repeat()))
 
-            elif t == "stop":
-                stop_event.set()
-                await ws.close()
-                return
+            # elif t == "stop":
+            #     stop_event.set()
+            #     await ws.close()
+            #     return
 
     except WebSocketDisconnect:
         stop_event.set()
