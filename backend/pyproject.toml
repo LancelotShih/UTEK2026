@@ -1,0 +1,13 @@
+[project]
+name = "utek2026_backend"
+version = "0.1.0"
+description = "UTEK 2026 Backend"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.4.1",
+    "openai>=2.15.0",
+    "pillow>=12.1.0",
+    "requests>=2.32.5",
+    "sounddevice>=0.5.3",
+]
