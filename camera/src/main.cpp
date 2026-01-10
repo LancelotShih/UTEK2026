@@ -40,7 +40,7 @@ static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" 
 static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
 static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
-// HTML page for the webserver
+// basic HTML page for the webserver for debug
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -223,15 +223,15 @@ void setup() {
     delay(1000);
     
     Serial.println();
-    Serial.println("=================================");
+    Serial.println("*********************************");
     Serial.println("ESP32-CAM Web Server Starting...");
-    Serial.println("=================================");
+    Serial.println("*********************************");
 
-    // Setup flash LED
+    // setup LED flash 
     pinMode(LED_GPIO_NUM, OUTPUT);
     digitalWrite(LED_GPIO_NUM, LOW);
 
-    // Camera configuration
+    // camera config
     Serial.println("Configuring camera...");
     camera_config_t config;
     config.ledc_channel = LEDC_CHANNEL_0;
@@ -253,23 +253,22 @@ void setup() {
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
     config.xclk_freq_hz = 20000000;
+    config.frame_size = FRAMESIZE_UXGA;
     config.pixel_format = PIXFORMAT_JPEG;
     config.grab_mode = CAMERA_GRAB_LATEST;
 
-    // Frame size and quality settings
-    if (psramFound()) {
-        config.frame_size = FRAMESIZE_VGA;
-        config.jpeg_quality = 10;
+    // frame settings
+        if (psramFound()) {
+        config.jpeg_quality = 15; // gotta fiddle with this, lower number = higher quality
         config.fb_count = 2;
         Serial.println("PSRAM found - using higher quality settings");
     } else {
-        config.frame_size = FRAMESIZE_SVGA;
         config.jpeg_quality = 12;
         config.fb_count = 1;
         Serial.println("No PSRAM - using lower quality settings");
     }
 
-    // Initialize camera
+    // initialize cam
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
         Serial.printf("Camera init failed with error 0x%x\n", err);
@@ -277,7 +276,7 @@ void setup() {
     }
     Serial.println("Camera initialized successfully");
 
-    // Camera sensor settings
+    // sensor settings
     sensor_t *s = esp_camera_sensor_get();
     if (s) {
         s->set_brightness(s, 0);
@@ -297,13 +296,13 @@ void setup() {
         s->set_raw_gma(s, 1);
         s->set_lenc(s, 1);
         s->set_hmirror(s, 0);
-        s->set_vflip(s, 0);
+        s->set_vflip(s, 1); // vertical flip enabled for correct input orientation
         s->set_dcw(s, 1);
         s->set_colorbar(s, 0);
     }
 
-    // Connect to WiFi (WPA2-Enterprise for UofT)
-    Serial.println("Connecting to WiFi...");
+    // connect to wifi (WPA2-Enterprise for UofT)
+    Serial.println("connecting to wifi...");
     WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
     
@@ -315,7 +314,7 @@ void setup() {
     WiFi.begin(ssid);
     WiFi.setSleep(false);
 
-    Serial.print("Connecting to WiFi (WPA2-Enterprise)");
+    Serial.print("connecting to wifi (WPA2-Enterprise)");
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 60) {
         delay(500);
@@ -324,23 +323,23 @@ void setup() {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi connected!");
-        Serial.print("Camera Stream Ready! Go to: http://");
+        Serial.println("\nwifi connected!");
+        Serial.print("camera ready Go to: http://");
         Serial.println(WiFi.localIP());
         
         startCameraServer();
     } else {
-        Serial.println("\nFailed to connect to WiFi");
-        Serial.println("Please check your credentials and restart");
+        Serial.println("\nfailed to connect to wifi");
+        Serial.println("please check credentials and restart");
     }
 }
 
 void loop() {
     delay(10000);
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("WiFi connected - IP: %s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("wifi connected, IP: %s\n", WiFi.localIP().toString().c_str());
     } else {
-        Serial.println("WiFi disconnected - attempting reconnect...");
+        Serial.println("wifi disconnected - attempting reconnect...");
         WiFi.reconnect();
     }
 }
