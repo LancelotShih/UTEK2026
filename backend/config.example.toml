@@ -1,0 +1,8 @@
+[base_urls]
+esp = "http://1.2.3.4"
+tts = "https://texttospeech.googleapis.com/v1/text:synthesize"
+openrouter = "https://openrouter.ai/api/v1"
+
+[keys]
+openrouter = "sk-or-v1-xxxxxx"
+google = "xxxxxx"
