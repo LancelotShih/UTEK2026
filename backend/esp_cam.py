@@ -3,6 +3,7 @@ from io import BytesIO
 from time import time, sleep
 
 import requests
+from PIL import Image
 from loguru import logger
 
 
